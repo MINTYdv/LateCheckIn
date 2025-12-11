@@ -26,6 +26,7 @@ class Flight(Base):
     __tablename__ = "flights"
     
     id = Column(Integer, primary_key=True, index=True)
+    status = Column(String)
     flight_number = Column(String)
     airline = Column(String)
     dep = Column(String)
@@ -41,11 +42,12 @@ class Flight(Base):
         default=lambda: datetime.datetime.now(ZoneInfo(TIMEZONE_NAME))
     )
 
-    def __init__(self, flight_number, airline, dep, arr,
+    def __init__(self, status, flight_number, airline, dep, arr,
                  dep_time_est=None, arr_time_est=None,
                  dep_time=None, arr_time=None,
                  timestamp=None):
 
+        self.status = status
         self.flight_number = flight_number
         self.airline = airline
         self.dep = dep
@@ -65,7 +67,7 @@ class Flight(Base):
         return None
 
     def __repr__(self):
-        return f"{self.id} - Flight {self.airline} {self.flight_number} - {self.dep} => {self.arr} - {self.dep_time} (Est. {self.dep_time_est}) - {self.arr_time} (Est. {self.arr_time_est}) => Delay {self.delay} [Timestamp {self.timestamp}]"
+        return f"{self.id} - Flight {self.airline} {self.flight_number} ({self.status}) - {self.dep} => {self.arr} - {self.dep_time} (Est. {self.dep_time_est}) - {self.arr_time} (Est. {self.arr_time_est}) => Delay {self.delay} [Timestamp {self.timestamp}]"
 
 # Create the "Flights" table
 Base.metadata.create_all(bind=engine)
