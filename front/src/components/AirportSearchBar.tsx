@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import CountryFlag from "./CountryFlag";
-import AIRPORTS from "../data/airports.json"; // assure-toi que le path est correct
+import AIRPORTS from "../data/airports.json";
 
 interface Airport {
   name: string;
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function AirportSearchBar({ onSelect }: Props) {
-  // Charge la dernière recherche depuis sessionStorage
+  // Initialize input query from sessionStorage to persist last search
   const [query, setQuery] = useState<string>(() => {
     return sessionStorage.getItem("lastAirportQuery") || "";
   });
@@ -23,18 +23,28 @@ export default function AirportSearchBar({ onSelect }: Props) {
   useEffect(() => {
     if (query.trim() === "") {
       setResults([]);
+      return;
+    }
+
+    // Filter airports by name or code, max 10 suggestions
+    const filtered = AIRPORTS.filter(a =>
+      a.name.toLowerCase().includes(query.toLowerCase()) ||
+      a.code.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 10);
+
+    // Hide suggestions if input matches exactly an airport
+    const exactMatch = filtered.find(a => a.name === query || a.code === query);
+    if (exactMatch) {
+      setResults([]);
     } else {
-      const filtered = AIRPORTS.filter(a =>
-        a.name.toLowerCase().includes(query.toLowerCase()) ||
-        a.code.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 10); // max 10 suggestions
       setResults(filtered);
     }
 
-    // Sauvegarde la recherche dans sessionStorage
+    // Persist current query in sessionStorage
     sessionStorage.setItem("lastAirportQuery", query);
   }, [query]);
 
+  // Handle selection of an airport from suggestions
   const handleSelect = (airport: Airport) => {
     setQuery(airport.name);
     setResults([]);
@@ -84,7 +94,7 @@ export default function AirportSearchBar({ onSelect }: Props) {
               }}
               onClick={() => handleSelect(a)}
             >
-              <CountryFlag code={a.country} size="w-20 h-25" />
+              <CountryFlag code={a.country} size="w-12 h-12" />
               <span>{a.name} ({a.code})</span>
             </div>
           ))}
