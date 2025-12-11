@@ -7,9 +7,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 import datetime
+import os
 
 # Local DB file
-DATABASE_URL = "sqlite:///flights.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'flights.db')}"
+
 TIMEZONE_NAME = "Europe/Paris"
 
 engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
