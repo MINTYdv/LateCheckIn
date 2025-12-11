@@ -3,24 +3,138 @@ import os
 from zoneinfo import ZoneInfo
 import datetime
 
-from database import Flight, session
+from database import Flight, session, TIMEZONE_NAME
 
 OS_API_KEY = os.getenv("AVIATIONSTACK_KEY")
-
+tz = ZoneInfo(TIMEZONE_NAME)
 
 class AviationStackAPI:
+    """
+    Class to interact with the AviationStack API to fetch flight data.
+
+    Attributes:
+        BASE_URL (str): Base URL of the AviationStack API.
+        api_key (str): API key for accessing AviationStack.
+        airport (str): IATA code of the airport to filter arriving flights.
+    """
+
     BASE_URL = "http://api.aviationstack.com/v1/flights"
 
     def __init__(self, api_key: str, airport: str = "CDG"):
+        """
+        Initialize the AviationStackAPI instance.
+
+        Args:
+            api_key (str): Your AviationStack API key.
+            airport (str, optional): IATA code of the airport to monitor. Defaults to "CDG".
+        """
         self.api_key = api_key
         self.airport = airport
 
     def fetch_flights(self) -> list[dict]:
+        """
+        Fetch all flights arriving at the specified airport from the AviationStack API.
+
+        Returns:
+            list[dict]: List of raw flight dictionaries from the API.
+        """
         params = {
-            'access_key': self.api_key,
-            'arr_iata': self.airport,
-            'limit': 200
+            "access_key": self.api_key,
+            "arr_iata": self.airport,  # filter by airport
+            "limit": 100
         }
         response = requests.get(self.BASE_URL, params=params)
         data = response.json()
         return data.get("data", [])
+    
+    
+    def filter_delayed(self, flights_raw: list[dict]) -> list[dict]:
+        """
+        Filter flights that are delayed at arrival.
+        Includes both flights currently in air ('active') and flights already landed ('landed').
+
+        Args:
+            flights_raw (list[dict]): Raw flight data from the API.
+
+        Returns:
+            list[dict]: List of flights that are delayed at arrival.
+        """
+        delayed = []
+        for f in flights_raw:
+            est = f["arrival"]["estimated"]
+            act = f["arrival"]["actual"]
+            status = f.get("flight_status")
+            
+            if est and act and status in ["active", "landed"]:
+                est_dt = datetime.datetime.fromisoformat(est.replace("Z", "+00:00"))
+                act_dt = datetime.datetime.fromisoformat(act.replace("Z", "+00:00"))
+                
+                if act_dt > est_dt:  # delayed, estimated < actual arrival time
+                    delayed.append(f)
+                    
+        return delayed
+    
+    def get_delayed_flights(self) -> list[Flight]:
+        """
+        Retrieve all delayed flights for the specified airport.
+
+        This method fetches flights from the API, filters those that are delayed,
+        and returns them as a list of Flight ORM objects.
+
+        Returns:
+            list[Flight]: List of delayed flights.
+        """
+        raw = self.fetch_flights()
+        delayed_raw = self.filter_delayed(raw)
+        return [self.to_flight(f) for f in delayed_raw]
+
+    def to_flight(self, f: dict) -> Flight:
+            """
+            Convert a raw flight dictionary into a Flight ORM object.
+
+            Args:
+                f (dict): Raw flight data dictionary.
+
+            Returns:
+                Flight: SQLAlchemy Flight object.
+            """
+            return Flight(
+                flight_number=f["flight"]["iata"],
+                airline=f["airline"]["name"],
+                dep=f["departure"]["iata"],
+                arr=f["arrival"]["iata"],
+                dep_time_est=self._parse_time(f["departure"]["estimated"], tz),
+                arr_time_est=self._parse_time(f["arrival"]["estimated"], tz),
+                dep_time=self._parse_time(f["departure"]["actual"], tz),
+                arr_time=self._parse_time(f["arrival"]["actual"], tz),
+                timestamp=datetime.datetime.now(tz)
+            )
+    
+    def save_flight(self, flight: Flight):
+        """
+        Save a Flight object to the database.
+
+        Args:
+            flight (Flight): The Flight ORM object to save.
+
+        Returns:
+            Flight: The saved Flight object.
+        """
+        session.add(flight)
+        session.commit()
+        return flight
+    
+    def _parse_time(self, time_str: str, tz: ZoneInfo):
+        """
+        Convert ISO8601 string to a timezone-aware datetime object.
+
+        Args:
+            time_str (str): ISO8601 datetime string.
+            tz (ZoneInfo): Target timezone.
+
+        Returns:
+            datetime.datetime | None: Parsed datetime object with timezone, or None if input is invalid.
+        """
+        if not time_str:
+            return None
+        return datetime.datetime.fromisoformat(time_str.replace("Z", "+00:00")).astimezone(tz)
