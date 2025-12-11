@@ -1,23 +1,20 @@
-
 interface CountryFlagProps {
-  code: string;
-  size?: string;
+  code: string;      // ISO country code, e.g., "FR"
+  size?: string;     // Tailwind classes, e.g., "w-6 h-6"
 }
 
-export default function CountryFlag({code, size = "w-6 h-6"}: CountryFlagProps) {
+export default function CountryFlag({ code, size = "w-6 h-6" }: CountryFlagProps) {
   if (!code) return null;
 
   return (
     <span
       className={`fi fi-${code.toLowerCase()} rounded-full ${size}`}
       style={{
-          width: size,
-          height: size,
-          borderRadius: "50%",
-          display: "inline-block",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }} 
-    ></span>
+        display: "inline-block",
+        borderRadius: "50%",
+        backgroundSize: "cover",       // zoom to fill the circle
+        backgroundPosition: "center",  // center the flag
+      }}
+    />
   );
 }
