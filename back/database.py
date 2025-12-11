@@ -21,21 +21,28 @@ class Base(DeclarativeBase):
 
 class Flight(Base):
     __tablename__ = "flights"
+    
     id = Column(Integer, primary_key=True, index=True)
     flight_number = Column(String)
     airline = Column(String)
     dep = Column(String)
     arr = Column(String)
+
     dep_time_est = Column(DateTime(timezone=True))
     arr_time_est = Column(DateTime(timezone=True))
     dep_time = Column(DateTime(timezone=True))
     arr_time = Column(DateTime(timezone=True))
+
     timestamp = Column(
         DateTime(timezone=True),
         default=lambda: datetime.datetime.now(ZoneInfo(TIMEZONE_NAME))
     )
 
-    def __init__(self, flight_number, airline, dep, arr, dep_time_est, arr_time_est, dep_time, arr_time, delay, timestamp=None):
+    def __init__(self, flight_number, airline, dep, arr,
+                 dep_time_est=None, arr_time_est=None,
+                 dep_time=None, arr_time=None,
+                 timestamp=None):
+
         self.flight_number = flight_number
         self.airline = airline
         self.dep = dep
@@ -44,16 +51,15 @@ class Flight(Base):
         self.arr_time_est = arr_time_est
         self.dep_time = dep_time
         self.arr_time = arr_time
-        self.delay = delay
-        self.timestamp = timestamp or datetime.datetime.now(ZoneInfo("Europe/Paris"))
+        self.timestamp = timestamp or datetime.datetime.now(ZoneInfo(TIMEZONE_NAME))
 
-    # Return the flight delay in minutes
+    # Calcul du retard en minutes
     @property
     def delay(self):
         if self.arr_time and self.arr_time_est:
             diff = self.arr_time - self.arr_time_est
             return diff.total_seconds() / 60
-        return None  
+        return None
 
     def __repr__(self):
         return f"{self.id} - Flight {self.airline} {self.flight_number} - {self.dep} => {self.arr} - {self.dep_time} (Est. {self.dep_time_est}) - {self.arr_time} (Est. {self.arr_time_est}) => Delay {self.delay} [Timestamp {self.timestamp}]"
