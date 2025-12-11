@@ -33,7 +33,7 @@ app = FastAPI(title="FlightDelay Monitor API")
 # Cache for API calls
 # ------------------------------
 last_update_time: datetime.datetime | None = None
-CACHE_DELAY_SECONDS = 60  # 1 minute
+CACHE_DELAY_SECONDS = 60  # 1 minute delay between UPDATE calls
 
 
 # ------------------------------
@@ -57,6 +57,7 @@ def delayed_flights(min_delay: int = Query(0, description="Minimum delay in minu
     return [
         {
             "flight_number": f.flight_number,
+            "status": f.status,
             "airline": f.airline,
             "dep": f.dep,
             "arr": f.arr,
@@ -83,6 +84,7 @@ def get_flight(flight_number: str):
     logger.info(f"Returning flight {flight_number}")
     return {
         "flight_number": flight.flight_number,
+        "status": flight.status,
         "airline": flight.airline,
         "dep": flight.dep,
         "arr": flight.arr,

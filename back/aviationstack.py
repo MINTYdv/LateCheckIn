@@ -127,6 +127,7 @@ class AviationStackAPI:
                 Flight: SQLAlchemy Flight object.
             """
             return Flight(
+                status=f["flight_status"],
                 flight_number=f["flight"]["iata"],
                 airline=f["airline"]["name"],
                 dep=f["departure"]["iata"],
