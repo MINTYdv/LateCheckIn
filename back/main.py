@@ -6,6 +6,7 @@ from database import session, Flight
 import os
 import datetime
 import logging
+from typing import Optional
 
 # ------------------------------
 # Setup logging
@@ -22,37 +23,39 @@ API_KEY = os.getenv("AVIATIONSTACK_KEY")
 # ------------------------------
 # Initialize AviationStack API
 # ------------------------------
-api = AviationStackAPI(api_key=API_KEY, airport="CDG")
+api = AviationStackAPI(api_key=API_KEY)
 
 # ------------------------------
 # Initialize FastAPI app
 # ------------------------------
-app = FastAPI(title="FlightDelay Monitor API")
+app = FastAPI(title="LateCheckIn API")
 
 # ------------------------------
 # Cache for API calls
 # ------------------------------
-last_update_time: datetime.datetime | None = None
-CACHE_DELAY_SECONDS = 60  # 1 minute delay between UPDATE calls
-
+last_update_time: Optional[datetime.datetime] = None
+CACHE_DELAY_SECONDS = 60  # 1 minute delay between API updates
 
 # ------------------------------
 # Endpoints
 # ------------------------------
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     """Root endpoint to check if API is running."""
-    return {"message": "FlightDelay Monitor API is running"}
-
+    return {"message": "LateCheckIn API is running"}
 
 @app.get("/delayed_flights")
-def delayed_flights(min_delay: int = Query(0, description="Minimum delay in minutes to filter flights")):
+def delayed_flights(arr: str | None = None, min_delay: int = Query(0, description="Minimum delay in minutes to filter flights")) -> list[dict]:
     """
     Retrieve all delayed flights (departure or arrival).
+    Optional query parameter to filter by arrival airport (IATA)
     Optional query parameter to filter by minimum delay in minutes.
+    Uses SQLAlchemy filter for efficiency.
     """
+    # Filter directly in Python for now
     flights = session.query(Flight).all()
-    filtered = [f for f in flights if (f.delay or 0) >= min_delay]
+    filtered = [f for f in flights if ((f.delay or 0) >= min_delay and (arr == None or f.arr == arr) )]
+
     logger.info(f"Returning {len(filtered)} delayed flights")
     return [
         {
@@ -61,6 +64,8 @@ def delayed_flights(min_delay: int = Query(0, description="Minimum delay in minu
             "airline": f.airline,
             "dep": f.dep,
             "arr": f.arr,
+            "dep_country": f.dep_country,
+            "arr_country": f.arr_country,
             "dep_time_est": f.dep_time_est,
             "dep_time": f.dep_time,
             "arr_time_est": f.arr_time_est,
@@ -71,16 +76,17 @@ def delayed_flights(min_delay: int = Query(0, description="Minimum delay in minu
         for f in filtered
     ]
 
-
 @app.get("/flight/{flight_number}")
-def get_flight(flight_number: str):
+def get_flight(flight_number: str) -> dict:
     """
     Retrieve a specific flight by its flight number.
+    Returns the latest timestamp if multiple entries exist.
     """
     flight = session.query(Flight).filter(Flight.flight_number == flight_number).order_by(Flight.timestamp.desc()).first()
     if not flight:
         logger.warning(f"Flight {flight_number} not found")
         return JSONResponse(status_code=404, content={"error": "Flight not found"})
+    
     logger.info(f"Returning flight {flight_number}")
     return {
         "flight_number": flight.flight_number,
@@ -88,6 +94,8 @@ def get_flight(flight_number: str):
         "airline": flight.airline,
         "dep": flight.dep,
         "arr": flight.arr,
+        "dep_country": flight.dep_country,
+        "arr_country": flight.arr_country,
         "dep_time_est": flight.dep_time_est,
         "dep_time": flight.dep_time,
         "arr_time_est": flight.arr_time_est,
@@ -96,12 +104,12 @@ def get_flight(flight_number: str):
         "timestamp": flight.timestamp
     }
 
-
 @app.post("/update_flights")
-def update_flights():
+def update_flights() -> dict[str, str]:
     """
     Fetch the latest delayed flights from AviationStack and store them in the database.
-    Will skip the API call if last update was less than 1 minute ago.
+    Skips API call if last update was less than 1 minute ago.
+    Avoids inserting duplicate flights (same flight_number + dep_time + arr_time).
     """
     global last_update_time
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -112,19 +120,26 @@ def update_flights():
 
     try:
         flights = api.get_delayed_flights()
-        for f in flights:
-            session.add(f)
-        session.commit()
-        last_update_time = now
-        logger.info(f"Updated {len(flights)} flights from AviationStack")
-        return {"message": f"{len(flights)} flights updated in database"}
+        
+        # Avoid duplicates
+        existing_keys = {(f.flight_number, f.dep_time, f.arr_time) for f in session.query(Flight.flight_number, Flight.dep_time, Flight.arr_time).all()}
+        new_flights = [f for f in flights if (f.flight_number, f.dep_time, f.arr_time) not in existing_keys]
+
+        if new_flights:
+            session.bulk_save_objects(new_flights)
+            session.commit()
+            last_update_time = now
+            logger.info(f"Updated {len(new_flights)} new flights from AviationStack")
+            return {"message": f"{len(new_flights)} new flights updated in database"}
+        else:
+            logger.info("No new flights to update")
+            return {"message": "No new flights to update"}
     except Exception as e:
         logger.error(f"Error updating flights: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-
 @app.get("/stats")
-def stats():
+def stats() -> dict:
     """
     Return statistics about delayed flights:
     - Total number of delayed flights

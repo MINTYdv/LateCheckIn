@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AirportSearchBar from "./components/AirportSearchBar";
+import FlightItem from "./components/FlightItem";
 
 interface Airport {
   name: string;
@@ -27,6 +28,12 @@ function App() {
     setSelectedAirport(airport);
     console.log("Selected airport:", airport);
     // Future: trigger API call to fetch flights for this airport
+
+    
+
+
+
+
   };
 
   return (
@@ -37,12 +44,24 @@ function App() {
       <AirportSearchBar onSelect={handleAirportSelect} />
 
       {/* Conditionally render flights dashboard when an airport is selected */}
-      {selectedAirport && (
-        <div style={{ marginTop: "20px" }}>
-          <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
-          {/* FlightList and Globe components will be added here */}
-        </div>
-      )}
+    {selectedAirport && (
+      <div style={{ marginTop: "20px" }}>
+        <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
+        <FlightItem flight={{
+          flightNumber: "AF123",
+          airline: "Air France",
+          dep: "CDG",
+          arr: "JFK",
+          depTimeEst: "2025-12-11T10:00:00+01:00",
+          depTime: "2025-12-11T10:15:00+01:00",
+          arrTimeEst: "2025-12-11T13:00:00-05:00",
+          arrTime: "2025-12-11T13:20:00-05:00",
+          status: "Airborne",
+          depCountry: "FR",
+          arrCountry: "US"
+        }} />
+      </div>
+    )}
     </div>
   );
 }

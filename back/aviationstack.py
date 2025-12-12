@@ -20,16 +20,14 @@ class AviationStackAPI:
 
     BASE_URL = "http://api.aviationstack.com/v1/flights"
 
-    def __init__(self, api_key: str, airport: str = "CDG"):
+    def __init__(self, api_key: str):
         """
         Initialize the AviationStackAPI instance.
 
         Args:
             api_key (str): Your AviationStack API key.
-            airport (str, optional): IATA code of the airport to monitor. Defaults to "CDG".
         """
         self.api_key = api_key
-        self.airport = airport
 
 
 
@@ -42,8 +40,7 @@ class AviationStackAPI:
             list[dict]: List of raw flight dictionaries from the API.
         """
         params = {
-            "access_key": self.api_key,
-            "arr_iata": self.airport  # filter by airport
+            "access_key": self.api_key
         }
         response = requests.get(self.BASE_URL, params=params)
         data = response.json()
@@ -67,7 +64,6 @@ class AviationStackAPI:
             dep_act = f["departure"]["actual"]
             arr_est = f["arrival"]["estimated"]
             arr_act = f["arrival"]["actual"]
-            status = f.get("flight_status")
 
             # Check if departure is delayed
             dep_delayed = False
@@ -127,7 +123,6 @@ class AviationStackAPI:
                 Flight: SQLAlchemy Flight object.
             """
             return Flight(
-                status=f["flight_status"],
                 flight_number=f["flight"]["iata"],
                 airline=f["airline"]["name"],
                 dep=f["departure"]["iata"],

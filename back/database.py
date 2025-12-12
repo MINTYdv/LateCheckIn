@@ -19,56 +19,55 @@ engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 session = Session()
 
+tz = ZoneInfo(TIMEZONE_NAME)
+
 class Base(DeclarativeBase):
     pass
 
 class Flight(Base):
     __tablename__ = "flights"
-    
     id = Column(Integer, primary_key=True, index=True)
-    status = Column(String)
     flight_number = Column(String)
     airline = Column(String)
     dep = Column(String)
     arr = Column(String)
-    depCountry = Column(String)
-    arrCountry = Column(String)
-
+    dep_country = Column(String)
+    arr_country = Column(String)
     dep_time_est = Column(DateTime(timezone=True))
     arr_time_est = Column(DateTime(timezone=True))
     dep_time = Column(DateTime(timezone=True))
     arr_time = Column(DateTime(timezone=True))
+    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.datetime.now(ZoneInfo(TIMEZONE_NAME)))
 
-    timestamp = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(ZoneInfo(TIMEZONE_NAME))
-    )
-
-    def __init__(self, status, flight_number, airline, dep, arr, depCountry, arrCountry,
-                 dep_time_est=None, arr_time_est=None,
-                 dep_time=None, arr_time=None,
-                 timestamp=None):
-
-        self.status = status
-        self.flight_number = flight_number
-        self.airline = airline
-        self.dep = dep
-        self.arr = arr
-        self.depCountry = depCountry
-        self.arrCountry = arrCountry
-        self.dep_time_est = dep_time_est
-        self.arr_time_est = arr_time_est
-        self.dep_time = dep_time
-        self.arr_time = arr_time
-        self.timestamp = timestamp or datetime.datetime.now(ZoneInfo(TIMEZONE_NAME))
-
-    # Calcul du retard en minutes
     @property
     def delay(self):
+        """Return the arrival delay in minutes."""
         if self.arr_time and self.arr_time_est:
-            diff = self.arr_time - self.arr_time_est
-            return diff.total_seconds() / 60
+            return (self.arr_time - self.arr_time_est).total_seconds() / 60
         return None
+
+    @property
+    def status(self):
+        now = datetime.datetime.now(tz)
+
+        dep = self.dep_time
+        arr = self.arr_time
+
+        # Force naive → aware
+        if dep and dep.tzinfo is None:
+            dep = dep.replace(tzinfo=tz)
+        if arr and arr.tzinfo is None:
+            arr = arr.replace(tzinfo=tz)
+
+        if dep and dep > now:
+            return "Scheduled"
+        elif dep and dep <= now:
+            if arr and arr > now:
+                return "Airborne"
+            elif arr and arr <= now:
+                return "Landed"
+
+        return "Unknown"
 
     def __repr__(self):
         return f"{self.id} - Flight {self.airline} {self.flight_number} ({self.status}) - {self.dep} ({self.depCountry}) => {self.arr} ({self.arrCountry}) - {self.dep_time} (Est. {self.dep_time_est}) - {self.arr_time} (Est. {self.arr_time_est}) => Delay {self.delay} [Timestamp {self.timestamp}]"
