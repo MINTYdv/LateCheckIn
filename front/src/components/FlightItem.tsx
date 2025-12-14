@@ -1,81 +1,156 @@
 import React from "react";
 import CountryFlag from "./CountryFlag";
-
-interface Flight {
-  flightNumber: string;
-  airline: string;
-  dep: string; // departure airport code
-  arr: string; // arrival airport code
-  depTimeEst: string; // ISO string
-  depTime: string;    // ISO string
-  arrTimeEst: string; // ISO string
-  arrTime: string;    // ISO string
-  status: "Scheduled" | "Airborne" | "Landed";
-  depCountry: string;
-  arrCountry: string;
-}
+import { Flight } from "../types";
+import { getCountryISO } from "../utils/airportUtils";
 
 interface Props {
   flight: Flight;
 }
 
 export default function FlightItem({ flight }: Props) {
-  const formatTime = (time: string) =>
-    new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Helper function: format ISO datetime string into "HH:mm" or return placeholder
+  const formatTime = (time: string | null) => {
+    if (!time) return "--:--";
+    const date = new Date(time);
+    if (isNaN(date.getTime())) return "--:--";
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
+  // Map flight status to a color
   const statusColor = {
-    Scheduled: "#FFA500",
-    Airborne: "#1E90FF",
-    Landed: "#32CD32"
-  }[flight.status];
+    Scheduled: "#FFA500", // Orange
+    Airborne: "#1E90FF",  // Dodger Blue
+    Landed: "#32CD32"     // Lime Green
+  }[flight.status] || "#999";
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      padding: "10px",
-      gap: "16px",
-      borderBottom: "1px solid #eee"
-    }}>
-      {/* Left column: departure above arrival */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "80px" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "10px",
+        gap: "16px",
+        borderBottom: "1px solid #eee",
+        flexWrap: "wrap",
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      }}
+      aria-label={`Flight ${flight.airline} ${flight.flight_number} from ${flight.dep} to ${flight.arr}`}
+    >
+      {/* Left column: departure above arrival with country flags */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          minWidth: "80px",
+          flexShrink: 0,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <CountryFlag code={flight.depCountry} size="w-6 h-6" />
-          <span style={{ fontWeight: "bold", fontSize: "12px" }}>{flight.dep}</span>
+          {getCountryISO(flight.dep) ? (
+            <CountryFlag code={getCountryISO(flight.dep)!} size="w-6 h-6" />
+          ) : (
+            <div style={{ width: 24, height: 16 }} aria-hidden="true" />
+          )}
+          <span style={{ fontWeight: 600, fontSize: "12px" }}>{flight.dep || "N/A"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <CountryFlag code={flight.arrCountry} size="w-6 h-6" />
-          <span style={{ fontWeight: "bold", fontSize: "12px" }}>{flight.arr}</span>
+          {getCountryISO(flight.arr) ? (
+            <CountryFlag code={getCountryISO(flight.arr)!} size="w-6 h-6" />
+          ) : (
+            <div style={{ width: 24, height: 16 }} aria-hidden="true" />
+          )}
+          <span style={{ fontWeight: 600, fontSize: "12px" }}>{flight.arr || "N/A"}</span>
         </div>
       </div>
 
-      {/* Flight info */}
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: "bold" }}>{flight.airline} {flight.flightNumber}</div>
-        <div style={{ display: "flex", gap: "12px", fontSize: "14px", color: "#555" }}>
-          <div>
-            Dep: <span style={{ textDecoration: flight.depTime !== flight.depTimeEst ? "line-through" : "none" }}>
-              {formatTime(flight.depTimeEst)}
-            </span> {flight.depTime !== flight.depTimeEst && `→ ${formatTime(flight.depTime)}`}
+      {/* Flight info: airline + flight number + scheduled/estimated times */}
+      <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {flight.airline || "Unknown Airline"} {flight.flight_number || ""}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: "16px",
+            fontSize: "14px",
+            color: "#555",
+            flexWrap: "wrap",
+            minWidth: 0,
+          }}
+        >
+          {/* Departure time */}
+          <div style={{ whiteSpace: "nowrap" }}>
+            Dep:{" "}
+            <span
+              style={{
+                textDecoration:
+                  flight.dep_time_scheduled && flight.dep_time_estimated && flight.dep_time_scheduled !== flight.dep_time_estimated
+                    ? "line-through"
+                    : "none",
+                color:
+                  flight.dep_time_scheduled && flight.dep_time_estimated && flight.dep_time_scheduled !== flight.dep_time_estimated
+                    ? "#999"
+                    : "#555",
+              }}
+              aria-label={`Scheduled departure time: ${formatTime(flight.dep_time_scheduled)}`}
+            >
+              {formatTime(flight.dep_time_scheduled)}
+            </span>
+            {flight.dep_time_scheduled && flight.dep_time_estimated && flight.dep_time_scheduled !== flight.dep_time_estimated && (
+              <span aria-label={`Estimated departure time: ${formatTime(flight.dep_time_estimated)}`}> → {formatTime(flight.dep_time_estimated)}</span>
+            )}
           </div>
-          <div>
-            Arr: <span style={{ textDecoration: flight.arrTime !== flight.arrTimeEst ? "line-through" : "none" }}>
-              {formatTime(flight.arrTimeEst)}
-            </span> {flight.arrTime !== flight.arrTimeEst && `→ ${formatTime(flight.arrTime)}`}
+
+          {/* Arrival time */}
+          <div style={{ whiteSpace: "nowrap" }}>
+            Arr:{" "}
+            <span
+              style={{
+                textDecoration:
+                  flight.arr_time_scheduled && flight.arr_time_estimated && flight.arr_time_scheduled !== flight.arr_time_estimated
+                    ? "line-through"
+                    : "none",
+                color:
+                  flight.arr_time_scheduled && flight.arr_time_estimated && flight.arr_time_scheduled !== flight.arr_time_estimated
+                    ? "#999"
+                    : "#555",
+              }}
+              aria-label={`Scheduled arrival time: ${formatTime(flight.arr_time_scheduled)}`}
+            >
+              {formatTime(flight.arr_time_scheduled)}
+            </span>
+            {flight.arr_time_scheduled && flight.arr_time_estimated && flight.arr_time_scheduled !== flight.arr_time_estimated && (
+              <span aria-label={`Estimated arrival time: ${formatTime(flight.arr_time_estimated)}`}> → {formatTime(flight.arr_time_estimated)}</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Status with colored dot */}
-      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <span style={{
-          width: "10px",
-          height: "10px",
-          borderRadius: "50%",
-          backgroundColor: statusColor,
-          display: "inline-block"
-        }} />
-        <span style={{ color: statusColor, fontWeight: "bold" }}>{flight.status}</span>
+      {/* Flight status with colored dot */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          minWidth: "110px",
+          justifyContent: "flex-end",
+          flexShrink: 0,
+        }}
+        aria-label={`Flight status: ${flight.status}`}
+      >
+        <span
+          style={{
+            width: "12px",
+            height: "12px",
+            borderRadius: "50%",
+            backgroundColor: statusColor,
+            display: "inline-block",
+            boxShadow: `0 0 6px ${statusColor}`,
+          }}
+          aria-hidden="true"
+        />
+        <span style={{ color: statusColor, fontWeight: 700, fontSize: "14px" }}>{flight.status}</span>
       </div>
     </div>
   );

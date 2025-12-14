@@ -30,10 +30,8 @@ function App() {
   // Callback when an airport is selected from the search bar
   const handleAirportSelect = (airport: Airport) => {
     setSelectedAirport(airport);
+    sessionStorage.setItem("lastAirportQuery", airport.code);
     console.log("Selected airport:", airport);
-    // Future: trigger API call to fetch flights for this airport
-
-    
   };
 
   return (
@@ -47,7 +45,7 @@ function App() {
     {selectedAirport && (
       <div style={{ marginTop: "20px" }}>
         <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
-        <FlightsList></FlightsList>
+        <FlightsList arrivalAirport={selectedAirport.code} />
       </div>
     )}
     </div>

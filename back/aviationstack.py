@@ -1,164 +1,138 @@
 import requests
-import os
-from zoneinfo import ZoneInfo
 import datetime
+import time
+import logging
 
-from database import Flight, session, TIMEZONE_NAME
+from database import Flight
 
-OS_API_KEY = os.getenv("AVIATIONSTACK_KEY")
-tz = ZoneInfo(TIMEZONE_NAME)
 
 class AviationStackAPI:
     """
-    Class to interact with the AviationStack API to fetch flight data.
+    Client wrapper for the AviationStack REST API.
 
-    Attributes:
-        BASE_URL (str): Base URL of the AviationStack API.
-        api_key (str): API key for accessing AviationStack.
-        airport (str): IATA code of the airport to filter arriving flights.
+    Responsibilities:
+    - Fetch all flight data from AviationStack with pagination support
+    - Map API payloads to Flight ORM objects
+    - Handle retries and logging for robustness
+
+    Note:
+    This class only fetches and maps flights; it does not perform any business logic such as delay calculations.
     """
 
     BASE_URL = "http://api.aviationstack.com/v1/flights"
+    MAX_RETRIES = 3
+    RETRY_DELAY = 2  # seconds
 
     def __init__(self, api_key: str):
         """
-        Initialize the AviationStackAPI instance.
+        Initialize the AviationStack API client.
 
         Args:
-            api_key (str): Your AviationStack API key.
+            api_key (str): AviationStack API key.
         """
         self.api_key = api_key
+        self.logger = logging.getLogger(__name__)
 
-
-
-
-    def fetch_flights(self) -> list[dict]:
+    def fetch_flights(self, limit: int = 100, offset: int = 0) -> list[dict]:
         """
-        Fetch all flights arriving at the specified airport from the AviationStack API.
+        Fetch flights from the AviationStack API with pagination support.
+
+        Args:
+            limit (int): Number of records to fetch per request (max depends on API).
+            offset (int): Offset for pagination.
 
         Returns:
-            list[dict]: List of raw flight dictionaries from the API.
+            list[dict]: Raw flight records returned by the API.
         """
         params = {
-            "access_key": self.api_key
+            "access_key": self.api_key,
+            "limit": limit,
+            "offset": offset,
         }
-        response = requests.get(self.BASE_URL, params=params)
-        data = response.json()
-        return data.get("data", [])
-    
-    
-    def filter_delayed(self, flights_raw: list[dict]) -> list[dict]:
+
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                self.logger.debug(f"Fetching flights from AviationStack API (limit={limit}, offset={offset}), attempt {attempt}")
+                response = requests.get(self.BASE_URL, params=params, timeout=10)
+                response.raise_for_status()
+                payload = response.json()
+                data = payload.get("data", [])
+                self.logger.info(f"Fetched {len(data)} flights from AviationStack API (limit={limit}, offset={offset})")
+                return data
+            except requests.RequestException as e:
+                self.logger.warning(f"Attempt {attempt} failed to fetch flights: {e}")
+                if attempt < self.MAX_RETRIES:
+                    time.sleep(self.RETRY_DELAY)
+                else:
+                    self.logger.error(f"All {self.MAX_RETRIES} attempts failed to fetch flights.")
+                    raise
+
+    def get_flights(self, limit: int = 100, offset: int = 0) -> list[Flight]:
         """
-        Filter flights that are delayed either at departure or at arrival.
-        Delay is still calculated based on arrival times.
+        Retrieve flights and convert them into Flight ORM objects.
 
         Args:
-            flights_raw (list[dict]): Raw flight data from the API.
+            limit (int): Number of records to fetch per request.
+            offset (int): Offset for pagination.
 
         Returns:
-            list[dict]: Flights that are delayed at departure or arrival.
+            list[Flight]: List of mapped Flight objects.
         """
-        delayed = []
-        for f in flights_raw:
-            dep_est = f["departure"]["estimated"]
-            dep_act = f["departure"]["actual"]
-            arr_est = f["arrival"]["estimated"]
-            arr_act = f["arrival"]["actual"]
-
-            # Check if departure is delayed
-            dep_delayed = False
-            if dep_est and dep_act:
-                dep_dt_est = datetime.datetime.fromisoformat(dep_est.replace("Z", "+00:00"))
-                dep_dt_act = datetime.datetime.fromisoformat(dep_act.replace("Z", "+00:00"))
-                if dep_dt_act > dep_dt_est:
-                    dep_delayed = True
-
-            # Check if arrival is delayed
-            arr_delayed = False
-            if arr_est and arr_act:
-                arr_dt_est = datetime.datetime.fromisoformat(arr_est.replace("Z", "+00:00"))
-                arr_dt_act = datetime.datetime.fromisoformat(arr_act.replace("Z", "+00:00"))
-                if arr_dt_act > arr_dt_est:
-                    arr_delayed = True
-
-            if dep_delayed or arr_delayed:
-                delayed.append(f)
-
-        return delayed
-    
-    def get_delayed_flights(self) -> list[Flight]:
-        """
-        Retrieve all delayed flights for the specified airport.
-
-        This method fetches flights from the API, filters those that are delayed,
-        and returns them as a list of Flight ORM objects.
-
-        Returns:
-            list[Flight]: List of delayed flights.
-        """
-        raw = self.fetch_flights()
-        delayed_raw = self.filter_delayed(raw)
-        return [self.to_flight(f) for f in delayed_raw]
-    
-    def get_flights(self) -> list[Flight]:
-        """
-        Retrieve all flights for the specified airport.
-
-        This method fetches flights from the API and returns them as a list of Flight ORM objects.
-
-        Returns:
-            list[Flight]: List of fetched flights.
-        """
-        raw = self.fetch_flights()
-        return [self.to_flight(f) for f in raw]
+        raw_flights = self.fetch_flights(limit=limit, offset=offset)
+        return [self.to_flight(f) for f in raw_flights]
 
     def to_flight(self, f: dict) -> Flight:
-            """
-            Convert a raw flight dictionary into a Flight ORM object.
-
-            Args:
-                f (dict): Raw flight data dictionary.
-
-            Returns:
-                Flight: SQLAlchemy Flight object.
-            """
-            return Flight(
-                flight_number=f["flight"]["iata"],
-                airline=f["airline"]["name"],
-                dep=f["departure"]["iata"],
-                arr=f["arrival"]["iata"],
-                dep_time_est=self._parse_time(f["departure"]["estimated"], tz),
-                arr_time_est=self._parse_time(f["arrival"]["estimated"], tz),
-                dep_time=self._parse_time(f["departure"]["actual"], tz),
-                arr_time=self._parse_time(f["arrival"]["actual"], tz),
-                timestamp=datetime.datetime.now(tz)
-            )
-    
-    def save_flight(self, flight: Flight):
         """
-        Save a Flight object to the database.
+        Convert a raw AviationStack flight payload into a Flight ORM object.
+
+        Missing or None values are replaced with empty strings to ensure data consistency.
 
         Args:
-            flight (Flight): The Flight ORM object to save.
+            f (dict): Raw flight dictionary from AviationStack.
 
         Returns:
-            Flight: The saved Flight object.
+            Flight: SQLAlchemy Flight instance.
         """
-        session.add(flight)
-        session.commit()
-        return flight
-    
-    def _parse_time(self, time_str: str, tz: ZoneInfo):
+        def safe_get(d, *keys):
+            for key in keys:
+                if d is None:
+                    return ""
+                d = d.get(key)
+            return d if d is not None else ""
+
+        return Flight(
+            flight_number=safe_get(f, "flight", "iata"),
+            airline=safe_get(f, "airline", "name"),
+            dep=safe_get(f, "departure", "iata"),
+            arr=safe_get(f, "arrival", "iata"),
+            dep_time_scheduled=self._parse_time(safe_get(f, "departure", "scheduled")),
+            dep_time_estimated=self._parse_time(safe_get(f, "departure", "estimated")),
+            arr_time_scheduled=self._parse_time(safe_get(f, "arrival", "scheduled")),
+            arr_time_estimated=self._parse_time(safe_get(f, "arrival", "estimated")),
+            timestamp=datetime.datetime.utcnow()
+        )
+
+    def _parse_time(self, time_str: str | None) -> datetime.datetime | None:
         """
-        Convert ISO8601 string to a timezone-aware datetime object.
+        Parse an ISO8601 timestamp into a naive UTC datetime.
+
+        AviationStack timestamps are UTC ("Z"), so we:
+        - Parse as aware datetime
+        - Convert to UTC
+        - Drop timezone info to keep everything naive
 
         Args:
-            time_str (str): ISO8601 datetime string.
-            tz (ZoneInfo): Target timezone.
+            time_str (str | None): ISO8601 timestamp string or None.
 
         Returns:
-            datetime.datetime | None: Parsed datetime object with timezone, or None if input is invalid.
+            datetime.datetime | None: Naive UTC datetime or None if input is invalid.
         """
         if not time_str:
             return None
-        return datetime.datetime.fromisoformat(time_str.replace("Z", "+00:00")).astimezone(tz)
+
+        try:
+            dt = datetime.datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+            return dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            self.logger.warning(f"Failed to parse datetime string: {time_str}")
+            return None

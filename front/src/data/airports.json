@@ -18500,6 +18500,11 @@
     "country": "TH"
   },
   {
+    "name": "Hong Kong International Airport",
+    "code": "HKG",
+    "country": "HK"
+  },
+  {
     "name": "Rapid City Regional Airport",
     "code": "RAP",
     "country": "US"

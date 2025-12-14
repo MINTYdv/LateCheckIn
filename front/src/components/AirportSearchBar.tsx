@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import CountryFlag from "./CountryFlag";
+import { getCountryISO } from "../utils/airportUtils";
 import AIRPORTS from "../data/airports.json";
 
 interface Airport {
@@ -94,7 +95,7 @@ export default function AirportSearchBar({ onSelect }: Props) {
               }}
               onClick={() => handleSelect(a)}
             >
-              <CountryFlag code={a.country} size="w-12 h-12" />
+              <CountryFlag code={getCountryISO(a.code) ?? ""} size="w-12 h-12" />
               <span>{a.name} ({a.code})</span>
             </div>
           ))}

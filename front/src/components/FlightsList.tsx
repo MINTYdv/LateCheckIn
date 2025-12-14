@@ -1,42 +1,28 @@
+// src/components/FlightsList.tsx
+
 import { useState, useEffect } from "react";
 import FlightItem from "./FlightItem";
+import { Flight } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-interface ApiResponse<T> {
-    data: T;
-}
-
-interface Flight {
-    flightNumber: string;
-    airline: string;
-    dep: string;
-    arr: string;
-    depTimeEst: string;
-    depTime: string;
-    arrTimeEst: string;
-    arrTime: string;
-    status: "Scheduled" | "Airborne" | "Landed";
-    depCountry: string;
-    arrCountry: string;
-}
-
-export default function FlightsList() {
+export default function FlightsList({ arrivalAirport }: { arrivalAirport?: string }) {
     const [flights, setFlights] = useState<Flight[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    const url = `${API_URL}/delayed_flights`;
-    // Generic GET request
+    // Construct API URL with optional arrival airport filter
+    const url = arrivalAirport ? `${API_URL}/flights?arr=${arrivalAirport}` : `${API_URL}/flights`;
+
+    // Generic GET request to fetch flights
     const fetchFlights = async () => {
-        
         try {
             setLoading(true);
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            const data: Flight[] = await response.json(); // cast to Flight[]
+            const data: Flight[] = await response.json();
             setFlights(data);
         } catch (err: any) {
             console.error(err);
@@ -46,21 +32,20 @@ export default function FlightsList() {
         }
     };
 
-    // Call fetchFlights once on component mount
+    // Fetch flights on component mount and when arrivalAirport changes
     useEffect(() => {
         fetchFlights();
-    }, []);
+    }, [arrivalAirport]);
 
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div>Error when loading list: {error}</div>;
+    if (loading) return <div>Loading flights...</div>;
+    if (error) return <div>Error when loading flights: {error}</div>;
+    if (flights.length === 0) return <div>No flights available.</div>;
 
     return (
-        <div>
-        {flights.map(f => (
-            <div key={f.flightNumber + f.dep + f.arr}>
-                <FlightItem flight={f} />
-            </div>
-        ))}
+        <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            {flights.map(f => (
+                <FlightItem key={`${f.flight_number}-${f.dep}-${f.arr}-${f.dep_time_scheduled}`} flight={f} />
+            ))}
         </div>
     );
 }
