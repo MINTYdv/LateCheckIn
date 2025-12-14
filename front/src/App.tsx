@@ -36,7 +36,11 @@ function App() {
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", fontFamily: "sans-serif" }}>
       {/* Fullscreen Globe */}
-      {selectedAirport && <FlightGlobe arrivalAirport={selectedAirport.code} style={{ width: "100%", height: "100%" }} />}
+      {selectedAirport && (
+        <div style={{ width: "100%", height: "100%" }}>
+          <FlightGlobe arrivalAirport={selectedAirport.code} />
+        </div>
+      )}
 
       {/* Overlay controls */}
       <div style={{
@@ -52,7 +56,7 @@ function App() {
         color: "white",
         boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
       }}>
-        <h1 style={{ marginBottom: 12 }}>Flight Dashboard</h1>
+        <h1 style={{ marginBottom: 12 }}>LateCheckIn</h1>
         <div style={{ display: "flex", gap: "10px", marginBottom: 20, flexWrap: "wrap" }}>
           <AirportSearchBar onSelect={handleAirportSelect} />
           <UpdateFlightsButton onUpdateComplete={handleUpdateComplete} />
