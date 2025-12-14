@@ -55,7 +55,7 @@ export default function FlightGlobe({ arrivalAirport }: { arrivalAirport?: strin
   return (
     <div style={{ width: "50%", height: "80vh" }}>
       <Globe
-        globeImageUrl="//cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
+        globeImageUrl="/src/images/earth-night.jpg"
         arcsData={arcs}
         arcColor="color"
         arcDashLength={() => Math.random()}

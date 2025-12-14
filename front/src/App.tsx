@@ -3,7 +3,7 @@ import AirportSearchBar from "./components/AirportSearchBar";
 import FlightsList from "./components/FlightsList";
 import UpdateFlightsButton from "./components/UpdateFlightsButton";
 import FlightGlobe from "./components/FlightGlobe";
-// Local Airport interface for App state
+
 interface Airport {
   name: string;
   code: string;
@@ -30,35 +30,39 @@ function App() {
   };
 
   const handleUpdateComplete = () => {
-    // Optionally trigger a refresh of FlightsList if needed
+    // Optional refresh logic
   };
 
   return (
-    <div style={{ padding: "20px", fontFamily: "sans-serif" }}>
-      <h1>Flight Dashboard</h1>
+    <div style={{ position: "relative", width: "100vw", height: "100vh", fontFamily: "sans-serif" }}>
+      {/* Fullscreen Globe */}
+      {selectedAirport && <FlightGlobe arrivalAirport={selectedAirport.code} style={{ width: "100%", height: "100%" }} />}
 
-      <div style={{ display: "flex", gap: "20px", height: "80vh" }}>
-        {/* Left column: search + update + flights list */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <AirportSearchBar onSelect={handleAirportSelect} />
-            <UpdateFlightsButton onUpdateComplete={handleUpdateComplete} />
-          </div>
-
-          {selectedAirport && (
-            <div style={{ overflowY: "auto", flex: 1 }}>
-              <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
-              <FlightsList arrivalAirport={selectedAirport.code} />
-            </div>
-          )}
+      {/* Overlay controls */}
+      <div style={{
+        position: "absolute",
+        top: 20,
+        left: 20,
+        width: 400,
+        maxHeight: "90%",
+        backgroundColor: "rgba(0,0,0,0.6)",
+        padding: 20,
+        borderRadius: 12,
+        overflowY: "auto",
+        color: "white",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
+      }}>
+        <h1 style={{ marginBottom: 12 }}>Flight Dashboard</h1>
+        <div style={{ display: "flex", gap: "10px", marginBottom: 20, flexWrap: "wrap" }}>
+          <AirportSearchBar onSelect={handleAirportSelect} />
+          <UpdateFlightsButton onUpdateComplete={handleUpdateComplete} />
         </div>
-
-        {/* Right column: globe showing flights */}
-        <div style={{ flex: 1, border: "1px solid #ccc" }}>
-          {selectedAirport && (
-            <FlightGlobe arrivalAirport={selectedAirport.code} />
-          )}
-        </div>
+        {selectedAirport && (
+          <>
+            <h2 style={{ marginBottom: 12 }}>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
+            <FlightsList arrivalAirport={selectedAirport.code} />
+          </>
+        )}
       </div>
     </div>
   );
