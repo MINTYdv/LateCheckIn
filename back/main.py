@@ -79,8 +79,6 @@ def flights(arr: str | None = None) -> list[dict]:
             "airline": f.airline,
             "dep": f.dep,
             "arr": f.arr,
-            "dep_country": f.dep_country,
-            "arr_country": f.arr_country,
             "dep_time_scheduled": f.dep_time_scheduled,
             "dep_time_estimated": f.dep_time_estimated,
             "arr_time_scheduled": f.arr_time_scheduled,

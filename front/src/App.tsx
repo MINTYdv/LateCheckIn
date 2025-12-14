@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import AirportSearchBar from "./components/AirportSearchBar";
-import FlightItem from "./components/FlightItem";
 import FlightsList from "./components/FlightsList";
-
+import UpdateFlightsButton from "./components/UpdateFlightsButton";
+import FlightGlobe from "./components/FlightGlobe";
+// Local Airport interface for App state
 interface Airport {
   name: string;
   code: string;
@@ -12,42 +13,53 @@ interface Airport {
 function App() {
   const [selectedAirport, setSelectedAirport] = useState<Airport | null>(null);
 
-  // Initialize selected airport from sessionStorage on first render
   useEffect(() => {
     const saved = sessionStorage.getItem("lastAirportQuery");
-
     if (saved) {
-      // Dynamically import airports.json and find matching airport
       import("./data/airports.json").then((module) => {
-        const airports: Airport[] = module.default; // ← obligatoire
+        const airports: Airport[] = module.default;
         const airport = airports.find(a => a.name === saved || a.code === saved);
         if (airport) setSelectedAirport(airport);
       });
-
     }
   }, []);
 
-  // Callback when an airport is selected from the search bar
   const handleAirportSelect = (airport: Airport) => {
     setSelectedAirport(airport);
     sessionStorage.setItem("lastAirportQuery", airport.code);
-    console.log("Selected airport:", airport);
+  };
+
+  const handleUpdateComplete = () => {
+    // Optionally trigger a refresh of FlightsList if needed
   };
 
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif" }}>
       <h1>Flight Dashboard</h1>
 
-      {/* Airport Search Bar component */}
-      <AirportSearchBar onSelect={handleAirportSelect} />
+      <div style={{ display: "flex", gap: "20px", height: "80vh" }}>
+        {/* Left column: search + update + flights list */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <AirportSearchBar onSelect={handleAirportSelect} />
+            <UpdateFlightsButton onUpdateComplete={handleUpdateComplete} />
+          </div>
 
-      {/* Conditionally render flights dashboard when an airport is selected */}
-    {selectedAirport && (
-      <div style={{ marginTop: "20px" }}>
-        <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
-        <FlightsList arrivalAirport={selectedAirport.code} />
+          {selectedAirport && (
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
+              <FlightsList arrivalAirport={selectedAirport.code} />
+            </div>
+          )}
+        </div>
+
+        {/* Right column: globe showing flights */}
+        <div style={{ flex: 1, border: "1px solid #ccc" }}>
+          {selectedAirport && (
+            <FlightGlobe arrivalAirport={selectedAirport.code} />
+          )}
+        </div>
       </div>
-    )}
     </div>
   );
 }

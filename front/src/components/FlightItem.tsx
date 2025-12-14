@@ -16,6 +16,17 @@ export default function FlightItem({ flight }: Props) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  // Helper function: format ISO datetime string into "DD/MM/YYYY" or return placeholder
+  const formatDate = (time: string | null) => {
+    if (!time) return "--/--/----";
+    const date = new Date(time);
+    if (isNaN(date.getTime())) return "--/--/----";
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   // Map flight status to a color
   const statusColor = {
     Scheduled: "#FFA500", // Orange
@@ -79,8 +90,9 @@ export default function FlightItem({ flight }: Props) {
             minWidth: 0,
           }}
         >
-          {/* Departure time */}
+          {/* Departure time and date */}
           <div style={{ whiteSpace: "nowrap" }}>
+            <div>{formatDate(flight.dep_time_scheduled)}</div>
             Dep:{" "}
             <span
               style={{
