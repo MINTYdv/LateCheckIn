@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AirportSearchBar from "./components/AirportSearchBar";
 import FlightItem from "./components/FlightItem";
+import FlightsList from "./components/FlightsList";
 
 interface Airport {
   name: string;
@@ -14,12 +15,15 @@ function App() {
   // Initialize selected airport from sessionStorage on first render
   useEffect(() => {
     const saved = sessionStorage.getItem("lastAirportQuery");
+
     if (saved) {
       // Dynamically import airports.json and find matching airport
-      import("./data/airports.json").then(module => {
-        const airport = module.default.find((a: Airport) => a.name === saved || a.code === saved);
+      import("./data/airports.json").then((module) => {
+        const airports: Airport[] = module.default; // ← obligatoire
+        const airport = airports.find(a => a.name === saved || a.code === saved);
         if (airport) setSelectedAirport(airport);
       });
+
     }
   }, []);
 
@@ -30,10 +34,6 @@ function App() {
     // Future: trigger API call to fetch flights for this airport
 
     
-
-
-
-
   };
 
   return (
@@ -47,19 +47,7 @@ function App() {
     {selectedAirport && (
       <div style={{ marginTop: "20px" }}>
         <h2>Flights for {selectedAirport.name} ({selectedAirport.code})</h2>
-        <FlightItem flight={{
-          flightNumber: "AF123",
-          airline: "Air France",
-          dep: "CDG",
-          arr: "JFK",
-          depTimeEst: "2025-12-11T10:00:00+01:00",
-          depTime: "2025-12-11T10:15:00+01:00",
-          arrTimeEst: "2025-12-11T13:00:00-05:00",
-          arrTime: "2025-12-11T13:20:00-05:00",
-          status: "Airborne",
-          depCountry: "FR",
-          arrCountry: "US"
-        }} />
+        <FlightsList></FlightsList>
       </div>
     )}
     </div>

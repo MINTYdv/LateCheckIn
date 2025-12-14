@@ -15,7 +15,7 @@ DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'flights.db')}"
 
 TIMEZONE_NAME = "Europe/Paris"
 
-engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 session = Session()
 

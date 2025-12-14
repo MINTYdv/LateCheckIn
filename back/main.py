@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from aviationstack import AviationStackAPI
 from database import session, Flight
@@ -35,6 +36,13 @@ app = FastAPI(title="LateCheckIn API")
 # ------------------------------
 last_update_time: Optional[datetime.datetime] = None
 CACHE_DELAY_SECONDS = 60  # 1 minute delay between API updates
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ------------------------------
 # Endpoints
@@ -120,6 +128,7 @@ def update_flights() -> dict[str, str]:
 
     try:
         flights = api.get_delayed_flights()
+        print(len(flights))
         
         # Avoid duplicates
         existing_keys = {(f.flight_number, f.dep_time, f.arr_time) for f in session.query(Flight.flight_number, Flight.dep_time, Flight.arr_time).all()}
