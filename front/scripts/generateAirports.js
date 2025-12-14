@@ -207,9 +207,11 @@ fs.createReadStream("../src/data/airports.dat")
     const iata = data[4];
     const countryName = data[3];
     const country = countryNameToCode[countryName] || "UN"; // UN = unknown
+    const lat = parseFloat(data[6]);
+    const lng = parseFloat(data[7]);
 
     if (iata && country !== "UN") {
-      results.push({ name, code: iata, country });
+      results.push({ name, code: iata, country, lat, lng });
     }
   })
   .on("end", () => {
